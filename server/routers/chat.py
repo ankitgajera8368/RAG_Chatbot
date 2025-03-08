@@ -50,6 +50,11 @@ def chat_with_docs(
             for response_chunk in get_llm_response(
                 query, retrieved_chunks, CHAT_HISTORY, stats={}
             ):
+                if response_chunk.startswith("CustomInternalError:"):
+                    raise HTTPException(
+                        status_code=500,
+                        detail="Could not receive response from LLM service!",
+                    )
                 response += response_chunk
                 yield response_chunk
             print(f"Response: {response}")
