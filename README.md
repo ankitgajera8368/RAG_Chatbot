@@ -8,7 +8,8 @@ This repository contains a Retrieval-Augmented Generation (RAG) chatbot built wi
 
 - **Retrieval**: Utilizes FAISS for efficient similarity search over embedded documents.  
 - **Augmented Generation**: Automatically injects relevant chunks into the LLM prompt to provide richer context.  
-- **FastAPI**: Provides a RESTful API for chat interactions, returning streaming responses.  
+- **FastAPI**: Provides a RESTful API for chat interactions, returning streaming responses.
+- **Conversation History**: Chat service maintains the conversation history and respond to queries based on previous conversation
 
 ## Output
 
