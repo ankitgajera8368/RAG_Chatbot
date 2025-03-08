@@ -19,8 +19,8 @@ This repository contains a Retrieval-Augmented Generation (RAG) chatbot built wi
 ### Service maintains the conversation history and respond to queries based on previous conversation
 ![Chatbot Continue Conversation](snapshots/Chatbot_Continue_Conversation.png?raw=true "Chatbot Continue Conversation")
 
-### Also providing the references to cross validate the credebility of the response
+### Also providing the references to cross validate the credibility of the response
 ![References](snapshots/References.png?raw=true "References")
 
-### Swagger Doc Output for the microservice
+### Swagger document output for the microservice
 ![Swagger Doc Output](snapshots/SwaggerDoc_Output.png?raw=true "Swagger Doc Output")
