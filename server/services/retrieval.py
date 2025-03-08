@@ -1,6 +1,10 @@
 import faiss
 from sentence_transformers import SentenceTransformer
-from config import EMBEDDING_MODEL_NAME
+from config.config import EMBEDDING_MODEL_NAME
+import logging
+import config.logging_config
+
+logger = logging.getLogger(__name__)
 
 
 def retrieve_top_k(query: str, index: faiss.Index, chunks: list[str], top_k=3):
@@ -13,35 +17,11 @@ def retrieve_top_k(query: str, index: faiss.Index, chunks: list[str], top_k=3):
 
     # Search
     distances, indices = index.search(query_embedding, top_k)
+    # indices -> shape: (query_count, top_k)
+    # distances -> shape: (query_count, top_k)
 
     # Gather top chunks
     results = []
     for idx in indices[0]:
         results.append(chunks[idx])
     return results
-
-
-def semantic_search(
-    query,
-    index,
-    chunks,
-    top_k=3,
-    model_name="sentence-transformers/all-MiniLM-L6-v2",
-):
-    """
-    Performs a semantic search on the provided FAISS index, returning the top_k chunks.
-    """
-    model = SentenceTransformer(model_name)
-    query_vector = model.encode([query], convert_to_numpy=True)
-
-    # FAISS search
-    D, I = index.search(query_vector, top_k)  # Distances and Indices
-    # I -> shape: (query_count, top_k)
-    # D -> shape: (query_count, top_k)
-
-    top_results = []
-    for i, idx_ in enumerate(I[0]):
-        result = {"chunk": chunks[idx_], "distance": float(D[0][i])}
-        top_results.append(result)
-
-    return top_results

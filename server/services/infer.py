@@ -1,7 +1,16 @@
 from typing import Dict, Generator, List, Optional
 import requests
-from config import LLM_MODEL_NAME, KRUTRIM_CLOUD_API_KEY
+from config.config import (
+    LLM_MODEL_NAME,
+    KRUTRIM_CLOUD_API_KEY,
+    LLM_PRICE_PER_MILLION_TOKEN,
+    MAX_CONVERSATION_MSGS,
+)
 import json
+import logging
+import config.logging_config
+
+logger = logging.getLogger(__name__)
 
 
 def get_llm_response(
@@ -15,8 +24,7 @@ def get_llm_response(
     Returns the LLM's response string.
     """
 
-    # Combine context chunks into a single string (if you prefer, you can store them separately)
-    # context_text = "\n\n".join(context_chunks)
+    # Combine context chunks into a single string along with filepath and title of each chunk
     context_text = ""
     for chunk in context_chunks:
         filepath = f"Filepath: {chunk['filepath']}"
@@ -25,7 +33,7 @@ def get_llm_response(
 
         context_text += filepath + "\n" + title + "\n" + content + "\n\n"
 
-    # System prompt that references the context
+    # System prompt that references the context retrieved from the vector store
     system_prompt = f"""
 You are a knowledgeable assistant. You have been given some context information below.
 
@@ -47,14 +55,18 @@ Your goal is to give the best possible answer to the user based on the context a
     # Build the final messages array: system prompt + existing chat history + new user query
     messages = []
 
-    # 1) system
+    # 1) system prompt
     messages.append({"role": "system", "content": system_prompt})
 
     # 2) existing chat history
     #    e.g. user -> assistant -> user -> assistant -> ...
     total_convo = len(chat_history)
-    if total_convo > 5:
-        max_chat = 5
+    # TODO: Chat history truncation logic can be improved by tracking input tokens and LLM's token length
+    if total_convo > MAX_CONVERSATION_MSGS:
+        logger.info(
+            f"Truncating the conversation history, keeping last {MAX_CONVERSATION_MSGS} messages"
+        )
+        max_chat = MAX_CONVERSATION_MSGS
     else:
         max_chat = total_convo
     for msg in chat_history[total_convo - max_chat :]:
@@ -62,6 +74,8 @@ Your goal is to give the best possible answer to the user based on the context a
 
     # 3) the new user query
     messages.append({"role": "user", "content": user_query})
+
+    logger.info(f"Query: {user_query}")
 
     url = "https://cloud.olakrutrim.com/v1/chat/completions"
     headers = {
@@ -72,16 +86,14 @@ Your goal is to give the best possible answer to the user based on the context a
     payload = {
         "model": LLM_MODEL_NAME,
         "messages": messages,
-        "stream": True,  # request streaming
+        "stream": True,
         "temperature": 0.75,
     }
 
     try:
-        # The key is using stream=True in the requests.post call:
         response = requests.post(url, headers=headers, json=payload, stream=True)
 
         if response.status_code != 200:
-            # Handle errors
             yield f"CustomInternalError: {response.status_code}\n{response.text}"
             return
 
@@ -108,7 +120,6 @@ Your goal is to give the best possible answer to the user based on the context a
                     # Parse JSON to extract partial content
                     try:
                         data_obj = json.loads(data_str)
-                        # Per typical SSE from LLMs: data_obj["choices"][0]["delta"]["content"]
                         if data_obj["choices"]:
                             content = data_obj["choices"][0]["delta"].get("content", "")
                             full_response += content
@@ -118,10 +129,15 @@ Your goal is to give the best possible answer to the user based on the context a
                             ]
                             stats["prompt_tokens"] = data_obj["usage"]["prompt_tokens"]
                             stats["total_tokens"] = data_obj["usage"]["total_tokens"]
-                        # TODO: add pricing for each call for logging purpose
+                            logger.info(
+                                f"Input tokens : {stats["prompt_tokens"]}\nOutput tokens : {stats["completion_tokens"]}\nCost incurred for current query: {round((int(stats["total_tokens"])*LLM_PRICE_PER_MILLION_TOKEN)/1000000, 3)} INR"
+                            )
                         yield content
                     except json.JSONDecodeError:
                         # If it's not valid JSON, just yield raw chunk
+                        logger.debug("If it's not valid JSON, just yielded raw chunk")
                         yield chunk
     except Exception as exc:
-        return f"Error calling LLM: {exc}"
+        error_msg = f"Error calling LLM: {exc}"
+        logger.error(error_msg)
+        return error_msg

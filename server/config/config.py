@@ -8,6 +8,8 @@ KRUTRIM_CLOUD_API_KEY = os.getenv("KRUTRIM_CLOUD_API_KEY")
 
 LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "Llama-3.3-70B-Instruct")
 
+LLM_PRICE_PER_MILLION_TOKEN = 16.60
+
 FAISS_INDEX_PATH = os.getenv("FAISS_INDEX_PATH", "./resources/faiss/faiss.index")
 
 FAISS_METADATA_PATH = os.getenv(
@@ -25,3 +27,5 @@ DATASET_PATH = (
 MAX_CHARS = 5000
 
 CHAT_HISTORY = []
+
+MAX_CONVERSATION_MSGS = 5

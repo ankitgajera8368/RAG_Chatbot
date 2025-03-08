@@ -39,7 +39,6 @@ def streaming_inference(user_query: str, chat_history: list[str]):
                 chunk = "```\n"
             if chunk.startswith("**Reference**:"):
                 chunk = "\n\n" + chunk
-            print(f"Chunk: {chunk}")
             yield chunk + "\n"
 
 

@@ -7,12 +7,10 @@ import yaml
 import os
 import faiss
 from sentence_transformers import SentenceTransformer
+import logging
+import config.logging_config
 
-
-# EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
-# FAISS_INDEX_PATH = (
-#     r"D:\workspace\projects\AbInBev\RAG_Chatbot\app\resources\faiss_new\faiss.index"
-# )
+logger = logging.getLogger(__name__)
 
 
 def load_all_markdown_files(folder_path):
@@ -27,7 +25,6 @@ def load_all_markdown_files(folder_path):
                 abs_path = os.path.join(root, filename)
                 with open(abs_path, "r", encoding="utf-8") as f:
                     content = f.read()
-                print(abs_path.replace(folder_path, ""))
                 md_files.append((abs_path.replace(folder_path, ""), content))
     return md_files
 
@@ -221,34 +218,8 @@ def embed_chunks(
     return embeddings
 
 
-def semantic_search(
-    query,
-    index,
-    chunks,
-    top_k=3,
-    model_name="sentence-transformers/all-MiniLM-L6-v2",
-):
-    """
-    Performs a semantic search on the provided FAISS index, returning the top_k chunks.
-    """
-    model = SentenceTransformer(model_name)
-    query_vector = model.encode([query], convert_to_numpy=True)
-
-    # FAISS search
-    D, I = index.search(query_vector, top_k)  # Distances and Indices
-    # I -> shape: (query_count, top_k)
-    # D -> shape: (query_count, top_k)
-
-    top_results = []
-    for i, idx_ in enumerate(I[0]):
-        result = {"chunk": chunks[idx_], "distance": float(D[0][i])}
-        top_results.append(result)
-
-    return top_results
-
-
 # -------------------------------------------------------
-# 3. Main Logic: Check if index exists, else build
+#  Check if index exists, else build
 # -------------------------------------------------------
 
 
@@ -267,57 +238,31 @@ def build_or_load_index(
     """
     if os.path.exists(index_path) and os.path.exists(metadata_path):
         # Load existing index + metadata
-        print("Loading existing FAISS index and metadata from disk...")
+        logger.info("Loading existing FAISS index and metadata from disk...")
         index = load_index_from_disk(index_path)
         with open(metadata_path, "r", encoding="utf-8") as f:
             metadata = json.load(f)
+        logger.info("Loading complete of existing FAISS index and metadata from disk")
         return index, metadata
     else:
         # Build from scratch
-        print("FAISS index not found. Building from scratch...")
+        logger.info("FAISS index not found. Building from scratch...")
 
-        print("Step 1: Building chunks...")
+        logger.info("Step 1: Building chunks...")
         all_chunks = build_chunks_for_folder(folder_path, max_chars=max_chars)
-        print(f"Total chunks: {len(all_chunks)}")
+        logger.info(f"Total chunks: {len(all_chunks)}")
 
-        print("Step 2: Embedding chunks...")
+        logger.info("Step 2: Embedding chunks...")
         embeddings = embed_chunks(all_chunks, model_name=model_name)
-        print("Embeddings shape:", embeddings.shape)
 
-        print("Step 3: Creating FAISS index...")
+        logger.info("Step 3: Creating FAISS index...")
         index = create_faiss_index(embeddings)
-        print("Index size:", index.ntotal)
 
-        print(f"Step 4: Storing index to disk: {index_path}")
+        logger.info(f"Step 4: Storing index to disk: {index_path}")
         store_index_on_disk(index, index_path)
 
-        print(f"Storing metadata to disk: {metadata_path}")
+        logger.info(f"Storing metadata to disk: {metadata_path}")
         with open(metadata_path, "w", encoding="utf-8") as f:
             json.dump(all_chunks, f, ensure_ascii=False, indent=2)
-
+        logger.info(f"FAISS index built from scratch and store at {metadata_path}")
         return index, all_chunks
-
-
-if __name__ == "__main__":
-    folder_path = r"E:\Docs\AbInBev\Drive_Code\demo_bot_data\demo_bot_data\demo_bot_data\ubuntu-docs"
-    index_output = (
-        r"D:\workspace\projects\AbInBev\RAG_Chatbot\app\resources\faiss\chunks.index"
-    )
-    metadata_output = index_output + ".metadata.json"
-    model_name = "sentence-transformers/all-MiniLM-L6-v2"
-
-    index, all_chunks = build_or_load_index(
-        folder_path, index_output, metadata_output, model_name, max_chars=3000
-    )
-
-    # Query
-    user_query = "How can I build an Ubuntu Image?"
-    # user_query = "Which snap package is used to manage power consumption?"
-    top_matches = semantic_search(user_query, index, all_chunks, top_k=3)
-
-    print("Top matches for query:", user_query)
-    for rank, match in enumerate(top_matches, start=1):
-        print(f"--- Result {rank} ---")
-        print("Distance:", match["distance"])
-        print("Chunk:", match["chunk"])
-        print("===")
