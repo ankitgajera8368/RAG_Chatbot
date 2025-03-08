@@ -8,7 +8,7 @@ from config import WEB_SERVER_URL
 dotenv.load_dotenv()
 
 
-def streaming_inference(user_query: str, chat_history: list[str]):
+def streaming_inference(user_query: str):
     """
     Generator function that streams partial LLM responses from an API
     that returns data in an SSE-like format (one JSON chunk per line).
@@ -65,7 +65,7 @@ def main():
                 partial_response_placeholder = st.empty()
                 response = ""
 
-                for chunk in streaming_inference(prompt, st.session_state.messages):
+                for chunk in streaming_inference(prompt):
                     response += chunk
                     partial_response_placeholder.markdown(response)
 
