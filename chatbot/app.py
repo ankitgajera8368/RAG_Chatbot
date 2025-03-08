@@ -35,11 +35,15 @@ def streaming_inference(user_query: str, chat_history: list[str]):
     # Iterate line by line.
     for chunk in response.iter_lines(decode_unicode=True):
         if chunk:
-            yield chunk
+            if chunk == "```":
+                chunk = "```\n"
+            if chunk.startswith("**Reference**:"):
+                chunk = "\n\n" + chunk
+            yield chunk + "\n"
 
 
 def main():
-    st.title("Chatbot to help with Ubuntu setup:")
+    st.title("Ubuntu Setup Helper Bot:")
 
     # Initialize chat history
     if "messages" not in st.session_state:
@@ -56,17 +60,17 @@ def main():
             st.markdown(prompt)
 
         with st.chat_message("assistant"):
-            # 2) Create a placeholder for partial streaming
-            partial_response_placeholder = st.empty()
-            partial_response_placeholder.markdown("")
-            response = ""
+            with st.spinner("Generating response..."):
+                # 2) Create a placeholder for partial streaming
+                partial_response_placeholder = st.empty()
+                response = ""
 
-            for chunk in streaming_inference(prompt, st.session_state.messages):
-                response += chunk
-                partial_response_placeholder.markdown(response)
+                for chunk in streaming_inference(prompt, st.session_state.messages):
+                    response += chunk
+                    partial_response_placeholder.markdown(response)
 
-                # A small delay can help visualize the streaming
-                time.sleep(0.1)
+                    # A small delay can help visualize the streaming
+                    time.sleep(0.1)
         st.session_state.messages.append({"role": "assistant", "content": response})
 
 

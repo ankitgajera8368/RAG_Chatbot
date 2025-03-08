@@ -7,4 +7,4 @@ load_dotenv()  # Reads .env file if present for the credentials
 
 WEB_SERVER_IP = os.getenv("WEB_SERVER_IP", "localhost")
 WEB_SERVER_PORT = os.getenv("WEB_SERVER_PORT", "7007")
-WEB_SERVER_URL = "http://{WEB_SERVER_IP}:{WEB_SERVER_PORT}"
+WEB_SERVER_URL = f"http://{WEB_SERVER_IP}:{WEB_SERVER_PORT}"
