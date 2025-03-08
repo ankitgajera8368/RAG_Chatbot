@@ -57,6 +57,7 @@ def chat_with_docs(
                     )
                 response += response_chunk
                 yield response_chunk
+                # yield json.dumps({"content": response_chunk}, ensure_ascii=False) + "\n"
             print(f"Response: {response}")
         except Exception as exc:
             # Handle error gracefully:

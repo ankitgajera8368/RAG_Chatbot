@@ -26,17 +26,6 @@ def get_llm_response(
         context_text += filepath + "\n" + title + "\n" + content + "\n\n"
 
     # System prompt that references the context
-    # system_prompt = (
-    #     "You are a helpful assistant. Use the following context to answer the user's question:\n\n"
-    #     f"{context_text}\n\n"
-    #     "Answer concisely and accurately along with reference from which you referred to generate the response.\n\n"
-    #     "Response: <your_response>\n\n"
-    #     "Reference: <filepath>"
-    # )
-    # 1) Use only the context provided to answer the user's question.
-    # 2) If the context is insufficient to answer, say that you do not have enough information or are unsure.
-    # 3) Do not invent additional details.
-    # 4) Also give reference of the filepath if you find the relavant information in the context.
     system_prompt = f"""
 You are a knowledgeable assistant. You have been given some context information below.
 
@@ -47,7 +36,9 @@ Instructions:
 
 1)Write your output in below format:
 <your response>
-Reference: <filepath>
+
+
+**Reference**: <filepath>
 
 Your goal is to give the best possible answer to the user based on the context and be elaborative about it.
 
@@ -61,7 +52,12 @@ Your goal is to give the best possible answer to the user based on the context a
 
     # 2) existing chat history
     #    e.g. user -> assistant -> user -> assistant -> ...
-    for msg in chat_history:
+    total_convo = len(chat_history)
+    if total_convo > 5:
+        max_chat = 5
+    else:
+        max_chat = total_convo
+    for msg in chat_history[total_convo - max_chat :]:
         messages.append({"role": msg["role"], "content": msg["content"]})
 
     # 3) the new user query
@@ -86,13 +82,14 @@ Your goal is to give the best possible answer to the user based on the context a
 
         if response.status_code != 200:
             # Handle errors
-            yield f"Error: {response.status_code}\n{response.text}"
+            yield f"CustomInternalError: {response.status_code}\n{response.text}"
             return
 
         # Iterate line by line. Each line should be something like "data: { ... }"
         # until we get "[DONE]" or the stream ends
         if not stats:
             stats = {"prompt_tokens": 0, "total_tokens": 0, "completion_tokens": 0}
+        full_response = ""
         for chunk in response.iter_lines(decode_unicode=True):
             if chunk:
                 # Typically lines start with "data: " prefix
@@ -100,6 +97,12 @@ Your goal is to give the best possible answer to the user based on the context a
                     data_str = chunk[len("data: ") :].strip()
                     # End-of-stream sentinel
                     if data_str == "[DONE]":
+                        messages.append({"role": "assistant", "content": full_response})
+                        for msg in messages:
+                            if msg["role"] != "system":
+                                chat_history.append(
+                                    {"role": msg["role"], "content": msg["content"]}
+                                )
                         break
 
                     # Parse JSON to extract partial content
@@ -108,12 +111,14 @@ Your goal is to give the best possible answer to the user based on the context a
                         # Per typical SSE from LLMs: data_obj["choices"][0]["delta"]["content"]
                         if data_obj["choices"]:
                             content = data_obj["choices"][0]["delta"].get("content", "")
+                            full_response += content
                         if "usage" in data_obj and data_obj["usage"]:
                             stats["completion_tokens"] = data_obj["usage"][
                                 "completion_tokens"
                             ]
                             stats["prompt_tokens"] = data_obj["usage"]["prompt_tokens"]
                             stats["total_tokens"] = data_obj["usage"]["total_tokens"]
+                        # TODO: add pricing for each call for logging purpose
                         yield content
                     except json.JSONDecodeError:
                         # If it's not valid JSON, just yield raw chunk
