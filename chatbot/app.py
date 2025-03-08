@@ -61,16 +61,17 @@ def main():
             st.markdown(prompt)
 
         with st.chat_message("assistant"):
-            # 2) Create a placeholder for partial streaming
-            partial_response_placeholder = st.empty()
-            response = ""
+            with st.spinner("Generating response..."):
+                # 2) Create a placeholder for partial streaming
+                partial_response_placeholder = st.empty()
+                response = ""
 
-            for chunk in streaming_inference(prompt, st.session_state.messages):
-                response += chunk
-                partial_response_placeholder.markdown(response)
+                for chunk in streaming_inference(prompt, st.session_state.messages):
+                    response += chunk
+                    partial_response_placeholder.markdown(response)
 
-                # A small delay can help visualize the streaming
-                time.sleep(0.1)
+                    # A small delay can help visualize the streaming
+                    time.sleep(0.1)
         st.session_state.messages.append({"role": "assistant", "content": response})
 
 
